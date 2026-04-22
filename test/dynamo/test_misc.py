@@ -8088,6 +8088,37 @@ not ___dict_contains('cccccccc', G['sys'].modules)""",
         except TypeError as e:
             self.assertIn("__bool__ should return bool, returned float", str(e))
 
+    def test_if_cond_user_defined_object_returns_self(self):
+        class MyObj:
+            def __bool__(self):
+                return self
+
+        def fn(a, obj):
+            if obj:
+                return a + 1
+            return a - 1
+
+        x = torch.rand(4)
+        opt_fn = torch.compile(fn, backend="eager")
+        with self.assertRaisesRegex(
+            TypeError, "__bool__ should return bool, returned MyObj"
+        ):
+            opt_fn(x, MyObj())
+
+    def test_bool_user_defined_object_raises_typeerror(self):
+        class Baz(int):
+            def __bool__(self):
+                return self
+
+        @torch.compile(backend="eager")
+        def fn(obj):
+            return bool(obj)
+
+        with self.assertRaisesRegex(
+            TypeError, "__bool__ should return bool, returned Baz"
+        ):
+            fn(Baz())
+
     def test_unpack_tensor_shape_mismatch(self):
         @torch.compile(backend="eager")
         def f1(x):
